@@ -13,9 +13,12 @@ plugins {
     alias(libs.plugins.shadow)
 }
 
-val isOfficial = System.getenv("HMCL_SIGNATURE_KEY") != null
-        || (System.getenv("GITHUB_REPOSITORY_OWNER") == "HMCL-dev" && System.getenv("GITHUB_BASE_REF")
-    .isNullOrEmpty())
+// 敏感信息从环境变量获取，提供默认值仅用于开发环境
+val microsoftAuthId = System.getenv("HMCL_MICROSOFT_AUTH_ID") ?: "dev-microsoft-id-placeholder"
+val microsoftAuthSecret = System.getenv("HMCL_MICROSOFT_AUTH_SECRET") ?: "dev-microsoft-secret-placeholder"
+val curseForgeApiKey = System.getenv("HMCL_CURSEFORGE_API_KEY") ?: "dev-curseforge-key-placeholder"
+val signatureKeyPath = System.getenv("HMCL_SIGNATURE_KEY_PATH")
+val isOfficial = signatureKeyPath != null || (System.getenv("GITHUB_REPOSITORY_OWNER") == "HMCL-dev" && System.getenv("GITHUB_BASE_REF").isNullOrEmpty())
 
 val buildNumber = System.getenv("BUILD_NUMBER")?.toInt().let { number ->
     val offset = System.getenv("BUILD_NUMBER_OFFSET")?.toInt() ?: 0
@@ -29,10 +32,6 @@ val buildNumber = System.getenv("BUILD_NUMBER")?.toInt().let { number ->
 }
 val versionRoot = System.getenv("VERSION_ROOT") ?: "1.0.0"
 val versionType = System.getenv("VERSION_TYPE") ?: if (isOfficial) "nightly" else "unofficial"
-
-val microsoftAuthId = System.getenv("MICROSOFT_AUTH_ID") ?: "72f25f4d-61b5-41ce-9e83-f95d2763a4bc"
-val microsoftAuthSecret = System.getenv("MICROSOFT_AUTH_SECRET") ?: "mhV8Q~nYqSahHy3y2C8T09fKB1j2wECIEmMXnaaI"
-val curseForgeApiKey = System.getenv("CURSEFORGE_API_KEY") ?: "\$2a\$10\$o8pygPrhvKBHuuh5imL2W.LCNFhB15zBYAExXx/TqTx/Z\n p5px2lxu"
 
 val launcherExe = System.getenv("HMCL_LAUNCHER_EXE")
 
@@ -72,6 +71,7 @@ fun createChecksum(file: File) {
         )
     }
 }
+
 fun calculateBuildNumber(version: String): Int {
     val buildNumberFile = File("buildNumber.properties")
     val properties = Properties()
@@ -88,28 +88,33 @@ fun calculateBuildNumber(version: String): Int {
 
     return newBuildNumber
 }
+
 fun attachSignature(jar: File) {
-    val keyLocation = System.getenv("HMCL_SIGNATURE_KEY")
-    if (keyLocation == null) {
-        logger.warn("Missing signature key")
+    if (signatureKeyPath == null) {
+        logger.warn("Missing signature key, skipping signature attachment")
         return
     }
 
-    val privatekey = KeyFactory.getInstance("RSA").generatePrivate(PKCS8EncodedKeySpec(File(keyLocation).readBytes()))
-    val signer = Signature.getInstance("SHA512withRSA")
-    signer.initSign(privatekey)
-    ZipFile(jar).use { zip ->
-        zip.stream()
-            .sorted(Comparator.comparing { it.name })
-            .filter { it.name != "META-INF/hmcl_signature" }
-            .forEach {
-                signer.update(digest("SHA-512", it.name.toByteArray()))
-                signer.update(digest("SHA-512", zip.getInputStream(it).readBytes()))
-            }
-    }
-    val signature = signer.sign()
-    FileSystems.newFileSystem(URI.create("jar:" + jar.toURI()), emptyMap<String, Any>()).use { zipfs ->
-        Files.newOutputStream(zipfs.getPath("META-INF/hmcl_signature")).use { it.write(signature) }
+    try {
+        val privatekey = KeyFactory.getInstance("RSA").generatePrivate(PKCS8EncodedKeySpec(File(signatureKeyPath).readBytes()))
+        val signer = Signature.getInstance("SHA512withRSA")
+        signer.initSign(privatekey)
+        ZipFile(jar).use { zip ->
+            zip.stream()
+                .sorted(Comparator.comparing { it.name })
+                .filter { it.name != "META-INF/hmcl_signature" }
+                .forEach {
+                    signer.update(digest("SHA-512", it.name.toByteArray()))
+                    signer.update(digest("SHA-512", zip.getInputStream(it).readBytes()))
+                }
+        }
+        val signature = signer.sign()
+        FileSystems.newFileSystem(URI.create("jar:" + jar.toURI()), emptyMap<String, Any>()).use { zipfs ->
+            Files.newOutputStream(zipfs.getPath("META-INF/hmcl_signature")).use { it.write(signature) }
+        }
+        logger.lifecycle("JAR signed successfully")
+    } catch (e: Exception) {
+        logger.error("Failed to sign JAR: ${e.message}")
     }
 }
 
@@ -119,7 +124,6 @@ tasks.withType<JavaCompile> {
 }
 
 tasks.checkstyleMain {
-    // Third-party code is not checked
     exclude("**/org/jackhuang/hmcl/ui/image/apng/**")
 }
 
@@ -139,7 +143,6 @@ tasks.shadowJar {
 
     exclude("**/package-info.class")
     exclude("META-INF/maven/**")
-
     exclude("META-INF/services/javax.imageio.spi.ImageReaderSpi")
     exclude("META-INF/services/javax.imageio.spi.ImageInputStreamSpi")
 
@@ -160,7 +163,6 @@ tasks.shadowJar {
     }
 
     manifest {
-
         attributes(
             "Created-By" to "Copyright(c) 2013-2025 huangyuhui.",
             "Main-Class" to "org.jackhuang.hmcl.Main",
@@ -241,12 +243,10 @@ tasks.build {
 }
 
 fun parseToolOptions(options: String?): MutableList<String> {
-    if (options == null)
-        return mutableListOf()
+    if (options == null) return mutableListOf()
 
     val builder = StringBuilder()
     val result = mutableListOf<String>()
-
     var offset = 0
 
     loop@ while (offset < options.length) {
@@ -256,17 +256,14 @@ fun parseToolOptions(options: String?): MutableList<String> {
                 result += builder.toString()
                 builder.clear()
             }
-
             while (offset < options.length && Character.isWhitespace(options[offset])) {
                 offset++
             }
-
             continue@loop
         }
 
         if (ch == '\'' || ch == '"') {
             offset++
-
             while (offset < options.length) {
                 val ch2 = options[offset++]
                 if (ch2 != ch) {
@@ -275,7 +272,6 @@ fun parseToolOptions(options: String?): MutableList<String> {
                     continue@loop
                 }
             }
-
             throw GradleException("Unmatched quote in $options")
         }
 
@@ -292,9 +288,7 @@ fun parseToolOptions(options: String?): MutableList<String> {
 
 tasks.register<JavaExec>("run") {
     dependsOn(tasks.jar)
-
     group = "application"
-
     classpath = files(jarPath)
     workingDir = rootProject.rootDir
 
@@ -315,10 +309,9 @@ tasks.register<JavaExec>("run") {
     doFirst {
         logger.quiet("HMCL_JAVA_OPTS: {}", vmOptions)
         logger.quiet("HMCL_JAVA_HOME: {}", hmclJavaHome ?: System.getProperty("java.home"))
+        logger.quiet("Using Microsoft Auth ID: {}", if (microsoftAuthId.startsWith("dev-")) "DEV MODE" else "PRODUCTION")
     }
 }
-
-// mcmod data
 
 tasks.register<ParseModDataTask>("parseModData") {
     inputFile.set(layout.projectDirectory.file("mod.json"))

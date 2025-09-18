@@ -1,5 +1,5 @@
 /*
- * Hello Minecraft! Launcher
+ * ClearCraft Launcher
  * Copyright (C) 2020  huangyuhui <huanghongxun2008@126.com> and contributors
  *
  * This program is free software: you can redistribute it and/or modify
@@ -23,174 +23,133 @@ import javafx.beans.binding.BooleanBinding;
 import javafx.beans.property.*;
 import javafx.beans.value.ObservableBooleanValue;
 import org.jackhuang.hmcl.Metadata;
-import org.jackhuang.hmcl.util.io.NetworkUtils;
 import org.jackhuang.hmcl.util.versioning.VersionNumber;
-import java.net.URI;
 import org.json.JSONArray;
-import org.json.JSONException;
 import org.json.JSONObject;
-import org.slf4j.ILoggerFactory;
 
-import java.net.URISyntaxException;
+import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.io.IOException;
+import java.time.Duration;
 
-import static org.jackhuang.hmcl.util.Lang.mapOf;
 import static org.jackhuang.hmcl.util.Lang.thread;
 import static org.jackhuang.hmcl.util.logging.Logger.LOG;
-import static org.jackhuang.hmcl.util.Pair.pair;
 
 public final class UpdateChecker {
+
     private UpdateChecker() {}
 
+    /* ===================== 状态字段 ===================== */
     private static final ObjectProperty<RemoteVersion> latestVersion = new SimpleObjectProperty<>();
-    private static final BooleanBinding outdated = Bindings.createBooleanBinding(
-            () -> {
-                RemoteVersion latest = latestVersion.get();
-                if (latest == null || isDevelopmentVersion(Metadata.VERSION)) {
-                    return false;
-                } else if (latest.isForce()
-                        || Metadata.isNightly()
-                        || latest.getChannel() == UpdateChannel.NIGHTLY
-                        || latest.getChannel() != UpdateChannel.getChannel()) {
-                    return !latest.getVersion().equals(Metadata.VERSION);
-                } else {
-                    return VersionNumber.compare(Metadata.VERSION, latest.getVersion()) < 0;
-                }
-            },
-            latestVersion);
+    private static final BooleanBinding outdated =
+            Bindings.createBooleanBinding(() -> computeOutdated(), latestVersion);
     private static final ReadOnlyBooleanWrapper checkingUpdate = new ReadOnlyBooleanWrapper(false);
 
+    /* ===================== 公共 API ===================== */
     public static void init() {
         requestCheckUpdate(UpdateChannel.getChannel());
     }
 
-    public static RemoteVersion getLatestVersion() {
-        return latestVersion.get();
-    }
-
-    public static ReadOnlyObjectProperty<RemoteVersion> latestVersionProperty() {
-        return latestVersion;
-    }
-
-    public static boolean isOutdated() {
-        return outdated.get();
-    }
-
-    public static ObservableBooleanValue outdatedProperty() {
-        return outdated;
-    }
-
-    public static boolean isCheckingUpdate() {
-        return checkingUpdate.get();
-    }
-
+    public static RemoteVersion getLatestVersion()           { return latestVersion.get(); }
+    public static ReadOnlyObjectProperty<RemoteVersion> latestVersionProperty() { return latestVersion; }
+    public static boolean isOutdated()                       { return outdated.get(); }
+    public static ObservableBooleanValue outdatedProperty()  { return outdated; }
+    public static boolean isCheckingUpdate()                 { return checkingUpdate.get(); }
     public static ReadOnlyBooleanProperty checkingUpdateProperty() {
         return checkingUpdate.getReadOnlyProperty();
     }
 
-    private static RemoteVersion checkUpdate(UpdateChannel channel) throws IOException, InterruptedException, URISyntaxException {
-        // 第一次请求获取版本信息
+    /* ===================== 内部实现 ===================== */
+    private static final String GITHUB_LATEST_RELEASE =
+            "https://api.github.com/repos/ClearCraft/ClearCraftLauncher/releases/latest";
+
+    private static RemoteVersion checkUpdate(UpdateChannel channel) {
+        HttpClient client = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(10))
+                .build();
+
         try {
-            HttpClient client = HttpClient.newHttpClient();
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(new URI(Metadata.HMCL_LATEST_VERSION_URL))
+            HttpRequest req = HttpRequest.newBuilder()
+                    .uri(URI.create(GITHUB_LATEST_RELEASE))
+                    .header("Accept", "application/vnd.github+json")
+                    .timeout(Duration.ofSeconds(10))
                     .GET()
                     .build();
-            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
 
-            JSONObject versionInfo = new JSONObject(response.body());
-
-            // 构建更新检查URL
-            String updateUrl = NetworkUtils.withQuery(Metadata.HMCL_UPDATE_URL, mapOf(
-                    pair("version", versionInfo.getString("latest_version")),
-                    pair("build", String.valueOf(versionInfo.getInt("latest_build")))
-            ));
-
-            // 第二次请求获取文件列表
-            client = HttpClient.newHttpClient();
-            request = HttpRequest.newBuilder()
-                    .uri(new URI(updateUrl))
-                    .GET()
-                    .build();
-            response = client.send(request, HttpResponse.BodyHandlers.ofString());
-
-            JSONObject updateInfo = new JSONObject(response.body());
-
-            // 安全获取contents数组
-            JSONArray contents = updateInfo.optJSONArray("contents");
-            if (contents == null) {
-                throw new JSONException("contents字段不存在或不是数组");
+            HttpResponse<String> resp = client.send(req, HttpResponse.BodyHandlers.ofString());
+            if (resp.statusCode() != 200) {
+                LOG.warning("GitHub API returned " + resp.statusCode());
+                return null;
             }
 
-            // 查找.jar.sha1文件
-            String sha1Content = null;
-            for (int i = 0; i < contents.length(); i++) {
-                JSONObject file = contents.getJSONObject(i);
-                if (file.getString("name").endsWith(".jar.sha1")) {
-                    String downloadUrl = "https://api.clearcraft.cn/CCL/download?file=" + file.getString("path");
+            JSONObject root = new JSONObject(resp.body());
+            String tag   = root.getString("tag_name");            // v1.0.0.74
+            JSONArray assets = root.getJSONArray("assets");
 
-                    // 获取SHA1文件内容
-                    HttpResponse<String> sha1Response = HttpClient.newHttpClient().send(
-                            HttpRequest.newBuilder().uri(new URI(downloadUrl)).GET().build(),
-                            HttpResponse.BodyHandlers.ofString()
-                    );
-                    sha1Content = sha1Response.body().trim();  // 使用trim()删除两端空白字符
-                    break;
-                }
-            }
-            String downloadUrl = null;
-            for (int i = 0; i < contents.length(); i++) {
-                JSONObject file = contents.getJSONObject(i);
-                if (file.getString("name").endsWith(".jar")) {
-                    downloadUrl = "https://api.clearcraft.cn/CCL/download?file=" + file.getString("path");
+            String jarUrl  = null;
+            String sha256  = null;
+            for (int i = 0; i < assets.length(); i++) {
+                JSONObject asset = assets.getJSONObject(i);
+                String name = asset.getString("name");
+                if (name.endsWith(".jar")) {
+                    jarUrl = asset.getString("browser_download_url");
+                    String digest = asset.optString("digest", ""); // "sha256:6ff34ad0..."
+                    if (digest.startsWith("sha256:")) {
+                        sha256 = digest.substring(7);            // 去掉前缀
+                    }
                     break;
                 }
             }
 
-            // 使用第一个文件作为主下载文件，并传递版本号和SHA1校验值
-            return RemoteVersion.fetch(
-                    channel,
-                    downloadUrl,
-                    sha1Content,
-                    versionInfo.getString("latest_version") + "." + versionInfo.getInt("latest_build") // 使用外层API获取的版本号
-            );
+            if (jarUrl == null) {
+                LOG.warning("No .jar asset found in latest release");
+                return null;
+            }
+
+            /* 版本号 = tag 去掉 v 前缀 */
+            String ver = tag.startsWith("v") ? tag.substring(1) : tag;
+
+            return RemoteVersion.fetch(channel, jarUrl, sha256, ver);
+
         } catch (Exception e) {
-            LOG.error("Check update failed", e);
+            LOG.error("Failed to check update from GitHub", e);
             return null;
         }
     }
 
+    private static boolean computeOutdated() {
+        RemoteVersion latest = latestVersion.get();
+        if (latest == null || isDevelopmentVersion(Metadata.VERSION))
+            return false;
+
+        if (latest.isForce()
+                || Metadata.isNightly()
+                || latest.getChannel() == UpdateChannel.NIGHTLY
+                || latest.getChannel() != UpdateChannel.getChannel()) {
+            return !latest.getVersion().equals(Metadata.VERSION);
+        }
+        return VersionNumber.compare(Metadata.VERSION, latest.getVersion()) < 0;
+    }
+
     private static boolean isDevelopmentVersion(String version) {
-        return version.contains("@") || // eg. @develop@
-                version.contains("SNAPSHOT"); // eg. 3.5.SNAPSHOT
+        return version.contains("@") || version.contains("SNAPSHOT");
     }
 
     public static void requestCheckUpdate(UpdateChannel channel) {
         Platform.runLater(() -> {
-            if (isCheckingUpdate())
-                return;
+            if (isCheckingUpdate()) return;
             checkingUpdate.set(true);
 
             thread(() -> {
-                RemoteVersion result = null;
-                try {
-                    result = checkUpdate(channel);
-                    LOG.info("Latest version (" + channel + ") is " + result);
-                } catch (IOException | InterruptedException | URISyntaxException e) {
-                    LOG.warning("Failed to check for update", e);
-                }
+                RemoteVersion result = checkUpdate(channel);
+                LOG.info("Latest version (" + channel + ") is " + result);
 
-                RemoteVersion finalResult = result;
                 Platform.runLater(() -> {
                     checkingUpdate.set(false);
-                    if (finalResult != null) {
-                        latestVersion.set(finalResult);
-                    }
+                    if (result != null) latestVersion.set(result);
                 });
-            }, "Update Checker", true);
+            }, "CCL-UpdateChecker", true);
         });
     }
 }
