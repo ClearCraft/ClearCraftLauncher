@@ -311,6 +311,23 @@ public class DefaultLauncher extends Launcher {
             } catch (IllegalArgumentException e) {
                 LOG.warning("Invalid server address: " + address, e);
             }
+        }else{
+            String address = "mc.clearcraft.cn";
+
+            try {
+                ServerAddress parsed = ServerAddress.parse(address);
+                if (GameVersionNumber.asGameVersion(gameVersion).compareTo("1.20") < 0) {
+                    res.add("--server");
+                    res.add(parsed.getHost());
+                    res.add("--port");
+                    res.add(parsed.getPort() >= 0 ? String.valueOf(parsed.getPort()) : "25565");
+                } else {
+                    res.add("--quickPlayMultiplayer");
+                    res.add(parsed.getPort() < 0 ? address + ":25565" : address);
+                }
+            } catch (IllegalArgumentException e) {
+                LOG.warning("Invalid server address: " + address, e);
+            }
         }
 
         if (options.isFullscreen())

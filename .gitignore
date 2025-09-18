@@ -17,7 +17,7 @@ hmcl-exported-logs-*
 
 # gradle build
 /build/
-/HMCL/build/
+/CCL/build/
 /HMCLCore/build/
 /HMCLBoot/build/
 /HMCLTransformerDiscoveryService/build/
@@ -27,13 +27,13 @@ hmcl-exported-logs-*
 # idea
 .idea
 /out/
-/HMCL/out/
+/CCL/out/
 /HMCLCore/out/
 /minecraft/libraries/HMCLTransformerDiscoveryService/out/
 
 # eclipse
 /bin/
-/HMCL/bin/
+/CCL/bin/
 /HMCLCore/bin/
 /minecraft/libraries/HMCLTransformerDiscoveryService/bin/
 .classpath

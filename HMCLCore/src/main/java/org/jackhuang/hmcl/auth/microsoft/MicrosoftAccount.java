@@ -140,10 +140,13 @@ public final class MicrosoftAccount extends OAuthAccount {
     public Map<Object, Object> toStorage() {
         return session.toStorage();
     }
-
+    public MicrosoftSession getSession() {
+        return session;
+    }
     public MicrosoftService getService() {
         return service;
     }
+
 
     @Override
     public ObjectBinding<Optional<Map<TextureType, Texture>>> getTextures() {

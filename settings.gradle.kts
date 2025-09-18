@@ -1,6 +1,6 @@
-rootProject.name = "HMCL3"
+rootProject.name = "CCL1"
 include(
-    "HMCL",
+    "CCL",
     "HMCLCore",
     "HMCLBoot",
     "HMCLTransformerDiscoveryService"
