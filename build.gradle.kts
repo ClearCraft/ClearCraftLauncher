@@ -59,7 +59,7 @@ subprojects {
 
 tasks.register("checkTranslations") {
     doLast {
-        val hmclLangDir = file("HMCL/src/main/resources/assets/lang")
+        val hmclLangDir = file("CCL/src/main/resources/assets/lang")
 
         val en = java.util.Properties().apply {
             hmclLangDir.resolve("I18N.properties").bufferedReader().use { load(it) }
