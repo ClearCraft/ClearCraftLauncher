@@ -293,6 +293,7 @@ tasks.register<JavaExec>("run") {
     workingDir = rootProject.rootDir
 
     val vmOptions = parseToolOptions(System.getenv("HMCL_JAVA_OPTS"))
+    vmOptions += "-Dhmcl.github.proxy=https://gh.jasonzeng.dev/https://github.com"
     if (vmOptions.none { it.startsWith("-Dhmcl.offline.auth.restricted=") })
         vmOptions += "-Dhmcl.offline.auth.restricted=false"
 

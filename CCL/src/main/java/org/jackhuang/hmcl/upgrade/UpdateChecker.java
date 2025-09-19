@@ -106,7 +106,9 @@ public final class UpdateChecker {
                 LOG.warning("No .jar asset found in latest release");
                 return null;
             }
-
+            if (Metadata.HMCL_UPDATE_URL != null) {
+                jarUrl = jarUrl.replace("https://github.com", Metadata.HMCL_UPDATE_URL);
+            }
             /* 版本号 = tag 去掉 v 前缀 */
             String ver = tag.startsWith("v") ? tag.substring(1) : tag;
 

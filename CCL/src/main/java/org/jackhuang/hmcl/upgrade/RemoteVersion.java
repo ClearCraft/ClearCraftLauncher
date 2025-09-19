@@ -33,7 +33,7 @@ public final class RemoteVersion {
         try {
             boolean force = false;
             if (url != null && jarHash != null) {
-                return new RemoteVersion(channel, version, url, Type.JAR, new IntegrityCheck("SHA-1", jarHash), force);
+                return new RemoteVersion(channel, version, url, Type.JAR, new IntegrityCheck("SHA-256", jarHash), force);
             } else {
                 throw new IOException("No download url is available");
             }

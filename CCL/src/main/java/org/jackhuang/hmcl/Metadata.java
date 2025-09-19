@@ -43,7 +43,7 @@ public final class Metadata {
     public static final String ABOUT_URL = PUBLISH_URL + "/about";
     public static final String DOWNLOAD_URL = PUBLISH_URL + "/download";
     public static final String HMCL_LATEST_VERSION_URL = "https://api.clearcraft.cn/CCL/last";
-    public static final String HMCL_UPDATE_URL = System.getProperty("hmcl.update_source.override", "https://api.clearcraft.cn/CCL/getVersion");
+    public static final String HMCL_UPDATE_URL = System.getProperty("hmcl.github.proxy", null);
 
     public static final String DOCS_URL = "https://docs.hmcl.net";
     public static final String CONTACT_URL = DOCS_URL + "/help.html";
