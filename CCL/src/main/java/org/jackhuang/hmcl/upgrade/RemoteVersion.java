@@ -20,16 +20,25 @@ package org.jackhuang.hmcl.upgrade;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
+import org.jackhuang.hmcl.Metadata;
 import org.jackhuang.hmcl.task.FileDownloadTask.IntegrityCheck;
 import org.jackhuang.hmcl.util.gson.JsonUtils;
 import org.jackhuang.hmcl.util.io.NetworkUtils;
+import org.jackhuang.hmcl.util.versioning.VersionNumber;
 
 import java.io.IOException;
 import java.util.Optional;
 
 public final class RemoteVersion {
-
+    private static boolean isNewerThanCurrent(String githubVersion) {
+        return VersionNumber.compare(Metadata.VERSION, githubVersion) < 0;
+    }
     public static RemoteVersion fetch(UpdateChannel channel, String url, String jarHash, String version) throws IOException {
+        // 👇 新增：真正比当前大才继续
+        if (!isNewerThanCurrent(version)) {
+            return null;          // 无更新
+        }
+
         try {
             boolean force = false;
             if (url != null && jarHash != null) {
