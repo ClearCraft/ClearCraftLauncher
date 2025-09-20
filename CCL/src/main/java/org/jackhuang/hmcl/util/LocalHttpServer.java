@@ -162,7 +162,7 @@ public class LocalHttpServer {
                 } else if (server.getUrl().equals("https://skin.ineko.cc/api/yggdrasil/")) {
                     loginTypeName = "RainCraft";
                 } else {
-                    loginTypeName = i18n("account.injector.server");
+                    return "{\"status\": \"error\",\"message\":\"User does not use ClearCraft or RainCraft account\"}";
                 }
             }
 
