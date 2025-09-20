@@ -84,15 +84,7 @@ public final class Metadata {
         DEPENDENCIES_DIRECTORY = HMCL_CURRENT_DIRECTORY.resolve("dependencies");
     }
 
-    public static boolean isStable() {
-        return "stable".equals(BUILD_CHANNEL);
-    }
-
     public static boolean isDev() {
         return "dev".equals(BUILD_CHANNEL);
-    }
-
-    public static boolean isNightly() {
-        return !isStable() && !isDev();
     }
 }

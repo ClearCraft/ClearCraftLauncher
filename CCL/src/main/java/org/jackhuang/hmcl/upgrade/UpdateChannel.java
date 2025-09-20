@@ -20,9 +20,8 @@ package org.jackhuang.hmcl.upgrade;
 import org.jackhuang.hmcl.Metadata;
 
 public enum UpdateChannel {
-    STABLE("stable"),
-    DEVELOPMENT("dev"),
-    NIGHTLY("nightly");
+    GITHUB("Github"),
+    GITEE("Gitee");
 
     public final String channelName;
 
@@ -32,11 +31,9 @@ public enum UpdateChannel {
 
     public static UpdateChannel getChannel() {
         if (Metadata.isDev()) {
-            return DEVELOPMENT;
-        } else if (Metadata.isNightly()) {
-            return NIGHTLY;
+            return GITEE;
         } else {
-            return STABLE;
+            return GITHUB;
         }
     }
 }

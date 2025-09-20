@@ -612,13 +612,6 @@ public final class MainPage extends StackPane implements DecoratorPage {
         hideNode.setCursor(Cursor.HAND);
         titleBar.setRight(hideNode);
         FXUtils.onClicked(hideNode, () -> {
-            if (announcementPane != null) {
-                if (Metadata.isDev()) {
-                    config().getShownTips().put(ANNOUNCEMENT, Metadata.VERSION);
-                }
-
-                announcementPane.setContent(new StackPane(), ContainerAnimations.FADE);
-            }
         });
 
         body.setLineSpacing(4);

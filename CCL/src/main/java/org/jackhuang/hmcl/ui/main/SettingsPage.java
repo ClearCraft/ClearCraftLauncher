@@ -103,10 +103,10 @@ public final class SettingsPage extends SettingsView {
         updateListener.invalidated(null);
 
         ToggleGroup updateChannelGroup = new ToggleGroup();
-        chkUpdateDev.setToggleGroup(updateChannelGroup);
-        chkUpdateDev.setUserData(UpdateChannel.DEVELOPMENT);
-        chkUpdateStable.setToggleGroup(updateChannelGroup);
-        chkUpdateStable.setUserData(UpdateChannel.STABLE);
+        chkUpdateGitee.setToggleGroup(updateChannelGroup);
+        chkUpdateGitee.setUserData(UpdateChannel.GITEE);
+        chkUpdateGithub.setToggleGroup(updateChannelGroup);
+        chkUpdateGithub.setUserData(UpdateChannel.GITHUB);
         ObjectProperty<UpdateChannel> updateChannel = selectedItemPropertyFor(updateChannelGroup, UpdateChannel.class);
         updateChannel.set(UpdateChannel.getChannel());
         updateChannel.addListener((a, b, newValue) -> {

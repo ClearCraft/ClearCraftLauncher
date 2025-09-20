@@ -53,8 +53,8 @@ public abstract class SettingsView extends StackPane {
     protected final ComponentSublist fileCommonLocationSublist;
     protected final Label lblUpdate;
     protected final Label lblUpdateSub;
-    protected final JFXRadioButton chkUpdateStable;
-    protected final JFXRadioButton chkUpdateDev;
+    protected final JFXRadioButton chkUpdateGithub;
+    protected final JFXRadioButton chkUpdateGitee;
     protected final JFXButton btnUpdate;
     protected final ScrollPane scroll;
 
@@ -132,13 +132,13 @@ public abstract class SettingsView extends StackPane {
                         VBox content = new VBox();
                         content.setSpacing(8);
 
-                        chkUpdateStable = new JFXRadioButton(i18n("update.channel.stable"));
-                        chkUpdateDev = new JFXRadioButton(i18n("update.channel.dev"));
+                        chkUpdateGithub = new JFXRadioButton("Github");
+                        chkUpdateGitee = new JFXRadioButton("Gitee");
 
                         TextFlow noteWrapper = new TextFlow(new Text(i18n("update.note")));
                         VBox.setMargin(noteWrapper, new Insets(10, 0, 0, 0));
 
-                        content.getChildren().setAll(chkUpdateStable, chkUpdateDev, noteWrapper);
+                        content.getChildren().setAll(chkUpdateGithub, chkUpdateGitee, noteWrapper);
 
                         updatePane.getContent().add(content);
                     }
