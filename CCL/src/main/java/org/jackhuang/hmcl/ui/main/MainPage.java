@@ -76,6 +76,7 @@ import org.jackhuang.hmcl.util.TaskCancellationAction;
 import org.jackhuang.hmcl.util.javafx.BindingMapping;
 import org.jackhuang.hmcl.util.javafx.MappedObservableList;
 import org.jackhuang.hmcl.util.platform.OperatingSystem;
+import org.json.JSONException;
 import org.json.JSONObject;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -658,7 +659,12 @@ public final class MainPage extends StackPane implements DecoratorPage {
                 while ((line = br.readLine()) != null) {
                     response.append(line);
                 }
-                return new JSONObject(response.toString()).getJSONObject("value").getString("HTML"); // 保存返回值到变量
+                try {
+                    return new JSONObject(response.toString()).getJSONObject("value").getString("HTML"); // 保存返回值到变量
+                } catch (JSONException e) {
+                    LOG.error("获取最新公告失败", e);
+                    return "<p>获取最新公告失败，详细请查看日志文件</p>";
+                }
             } catch (IOException e) {
                 LOG.error("获取最新公告失败", e);
                 return "<p>获取最新公告失败，详细请查看日志文件</p>";
