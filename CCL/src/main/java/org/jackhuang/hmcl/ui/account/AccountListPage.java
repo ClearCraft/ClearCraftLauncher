@@ -53,6 +53,7 @@ import java.net.URI;
 import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.Locale;
+import java.util.Objects;
 
 import static org.jackhuang.hmcl.setting.ConfigHolder.globalConfig;
 import static org.jackhuang.hmcl.ui.versions.VersionPage.wrap;
@@ -177,38 +178,46 @@ public final class AccountListPage extends DecoratorAnimatedPage implements Deco
                     RainCraftItem.setOnAction(e -> Controllers.dialog(new CreateAccountPane(new AuthlibInjectorServer("https://skin.ineko.cc/api/yggdrasil/"))));
 
                     VBox boxAuthServers = new VBox();
-                    authServerItems = MappedObservableList.create(skinnable.authServersProperty(), server -> {
-                        AdvancedListItem item = new AdvancedListItem();
-                        item.getStyleClass().add("navigation-drawer-item");
-                        item.setLeftGraphic(wrap(SVG.DRESSER));
-                        item.setOnAction(e -> Controllers.dialog(new CreateAccountPane(server)));
+                    authServerItems = MappedObservableList.create(
+                            skinnable.authServersProperty(),
+                            server -> {
+                                if (Objects.equals(server.getUrl(), "https://skins.clearcraft.cn/api/yggdrasil/") ||
+                                        Objects.equals(server.getUrl(), "https://skin.ineko.cc/api/yggdrasil/")) {
+                                    return null;
+                                }
 
-                        JFXButton btnRemove = new JFXButton();
-                        btnRemove.setOnAction(e -> {
-                            Controllers.confirm(i18n("button.remove.confirm"), i18n("button.remove"), () -> {
-                                skinnable.authServersProperty().remove(server);
-                            }, null);
-                            e.consume();
-                        });
-                        btnRemove.getStyleClass().add("toggle-icon4");
-                        btnRemove.setGraphic(SVG.CLOSE.createIcon(Theme.blackFill(), 14));
-                        item.setRightGraphic(btnRemove);
+                                AdvancedListItem item = new AdvancedListItem();
+                                item.getStyleClass().add("navigation-drawer-item");
+                                item.setLeftGraphic(wrap(SVG.DRESSER));
+                                item.setOnAction(e -> Controllers.dialog(new CreateAccountPane(server)));
 
-                        ObservableValue<String> title = BindingMapping.of(server, AuthlibInjectorServer::getName);
-                        item.titleProperty().bind(title);
-                        String host = "";
-                        try {
-                            host = URI.create(server.getUrl()).getHost();
-                        } catch (IllegalArgumentException e) {
-                            LOG.warning("Unparsable authlib-injector server url " + server.getUrl(), e);
-                        }
-                        item.subtitleProperty().set(host);
-                        Tooltip tooltip = new Tooltip();
-                        tooltip.textProperty().bind(Bindings.format("%s (%s)", title, server.getUrl()));
-                        FXUtils.installFastTooltip(item, tooltip);
+                                JFXButton btnRemove = new JFXButton();
+                                btnRemove.setOnAction(e -> {
+                                    Controllers.confirm(i18n("button.remove.confirm"), i18n("button.remove"), () -> {
+                                        skinnable.authServersProperty().remove(server);
+                                    }, null);
+                                    e.consume();
+                                });
+                                btnRemove.getStyleClass().add("toggle-icon4");
+                                btnRemove.setGraphic(SVG.CLOSE.createIcon(Theme.blackFill(), 14));
+                                item.setRightGraphic(btnRemove);
 
-                        return item;
-                    });
+                                ObservableValue<String> title = BindingMapping.of(server, AuthlibInjectorServer::getName);
+                                item.titleProperty().bind(title);
+                                String host = "";
+                                try {
+                                    host = URI.create(server.getUrl()).getHost();
+                                } catch (IllegalArgumentException e) {
+                                    LOG.warning("Unparsable authlib-injector server url " + server.getUrl(), e);
+                                }
+                                item.subtitleProperty().set(host);
+                                Tooltip tooltip = new Tooltip();
+                                tooltip.textProperty().bind(Bindings.format("%s (%s)", title, server.getUrl()));
+                                FXUtils.installFastTooltip(item, tooltip);
+
+                                return item;
+                            }
+                    ).filtered(Objects::nonNull);
                     Bindings.bindContent(boxAuthServers.getChildren(), authServerItems);
 
 

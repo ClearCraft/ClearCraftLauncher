@@ -69,6 +69,7 @@ import org.jackhuang.hmcl.util.gson.UUIDTypeAdapter;
 import org.jackhuang.hmcl.util.javafx.BindingMapping;
 import org.jetbrains.annotations.Nullable;
 
+import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.regex.Pattern;
@@ -118,7 +119,7 @@ public class CreateAccountPane extends JFXDialogLayout implements DialogAware {
                 try {
                     factory = Accounts.getAccountFactory(preferred);
                 } catch (IllegalArgumentException e) {
-                    factory = Accounts.FACTORY_OFFLINE;
+                    // factory = Accounts.FACTORY_OFFLINE;
                 }
             }
         } else {
@@ -447,35 +448,76 @@ public class CreateAccountPane extends JFXDialogLayout implements DialogAware {
 
             int rowIndex = 0;
 
-            this.server = ((BoundAuthlibInjectorAccountFactory) factory).getServer();
-                if (factory instanceof BoundAuthlibInjectorAccountFactory) {
+            if (factory instanceof BoundAuthlibInjectorAccountFactory) {
+                this.server = ((BoundAuthlibInjectorAccountFactory) factory).getServer();
 
-                    Label lblServers = new Label(i18n("account.injector.server"));
-                    setHalignment(lblServers, HPos.LEFT);
-                    add(lblServers, 0, rowIndex);
+                Label lblServers = new Label(i18n("account.injector.server"));
+                setHalignment(lblServers, HPos.LEFT);
+                add(lblServers, 0, rowIndex);
 
-                    String servername = this.server.getName();
-                    if (servername == "https://skins.clearcraft.cn/api/yggdrasil/") {
-                        servername = "ClearCraft";
-                    }else if (servername == "https://skin.ineko.cc/api/yggdrasil/"){
-                        servername = "RainCraft";
-                    }
-                    Label lblServerName = new Label(servername);
-                    lblServerName.setMaxWidth(Double.MAX_VALUE);
-                    HBox.setHgrow(lblServerName, Priority.ALWAYS);
+                String servername = this.server.getName();
+                if (servername == "https://skins.clearcraft.cn/api/yggdrasil/") {
+                    servername = "ClearCraft";
+                }else if (servername == "https://skin.ineko.cc/api/yggdrasil/"){
+                    servername = "RainCraft";
+                }
+                Label lblServerName = new Label(servername);
+                lblServerName.setMaxWidth(Double.MAX_VALUE);
+                HBox.setHgrow(lblServerName, Priority.ALWAYS);
 
-                    HBox linksContainer = new HBox();
-                    linksContainer.setAlignment(Pos.CENTER);
-                    linksContainer.getChildren().setAll(createHyperlinks(this.server));
-                    linksContainer.setMinWidth(USE_PREF_SIZE);
+                HBox linksContainer = new HBox();
+                linksContainer.setAlignment(Pos.CENTER);
+                linksContainer.getChildren().setAll(createHyperlinks(this.server));
+                linksContainer.setMinWidth(USE_PREF_SIZE);
 
-                    HBox boxServers = new HBox(lblServerName, linksContainer);
-                    boxServers.setAlignment(Pos.CENTER_LEFT);
-                    add(boxServers, 1, rowIndex);
+                HBox boxServers = new HBox(lblServerName, linksContainer);
+                boxServers.setAlignment(Pos.CENTER_LEFT);
+                add(boxServers, 1, rowIndex);
 
-                    rowIndex++;
+                rowIndex++;
 
+        } else if (factory instanceof AuthlibInjectorAccountFactory) {
+                Label lblServers = new Label(i18n("account.injector.server"));
+                setHalignment(lblServers, HPos.LEFT);
+                add(lblServers, 0, rowIndex);
+
+                cboServers = new JFXComboBox<>();
+                cboServers.setCellFactory(jfxListCellFactory(server -> new TwoLineListItem(server.getName(), server.getUrl())));
+                cboServers.setConverter(stringConverter(AuthlibInjectorServer::getName));
+                bindContent(cboServers.getItems(), config().getAuthlibInjectorServers());
+                cboServers.getItems().addListener(onInvalidating(
+                        () -> Platform.runLater( // the selection will not be updated as expected if we call it immediately
+                                cboServers.getSelectionModel()::selectFirst)));
+                cboServers.getSelectionModel().selectFirst();
+                cboServers.setPromptText(i18n("account.injector.empty"));
+                BooleanBinding noServers = createBooleanBinding(cboServers.getItems()::isEmpty, cboServers.getItems());
+                classPropertyFor(cboServers, "jfx-combo-box-warning").bind(noServers);
+                classPropertyFor(cboServers, "jfx-combo-box").bind(noServers.not());
+                HBox.setHgrow(cboServers, Priority.ALWAYS);
+                HBox.setMargin(cboServers, new Insets(0, 10, 0, 0));
+                cboServers.setMaxWidth(Double.MAX_VALUE);
+
+                HBox linksContainer = new HBox();
+                linksContainer.setAlignment(Pos.CENTER);
+                onChangeAndOperate(cboServers.valueProperty(), server -> {
+                    this.server = server;
+                    linksContainer.getChildren().setAll(createHyperlinks(server));
+                });
+                linksContainer.setMinWidth(USE_PREF_SIZE);
+
+                JFXButton btnAddServer = new JFXButton();
+                btnAddServer.setGraphic(SVG.ADD.createIcon(Theme.blackFill(), 20));
+                btnAddServer.getStyleClass().add("toggle-icon4");
+                btnAddServer.setOnAction(e -> {
+                    Controllers.dialog(new AddAuthlibInjectorServerPane());
+                });
+
+                HBox boxServers = new HBox(cboServers, linksContainer, btnAddServer);
+                add(boxServers, 1, rowIndex);
+
+                rowIndex++;
             }
+
 
             if (factory.getLoginType().requiresUsername) {
                 Label lblUsername = new Label(i18n("account.username"));

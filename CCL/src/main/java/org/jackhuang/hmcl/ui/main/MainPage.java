@@ -46,6 +46,7 @@ import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Text;
 import javafx.scene.text.TextFlow;
 import javafx.util.Duration;
+import javafx.stage.Stage;
 import org.jackhuang.hmcl.Launcher;
 import org.jackhuang.hmcl.Metadata;
 import org.jackhuang.hmcl.download.DefaultDependencyManager;
@@ -82,12 +83,20 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 
+import java.awt.SystemTray;
+import java.awt.TrayIcon;
+import java.awt.MenuItem;
+import java.awt.Image;
+import java.net.URL;
+import java.io.IOException;
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
-import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -100,11 +109,6 @@ import static org.jackhuang.hmcl.setting.ConfigHolder.config;
 import static org.jackhuang.hmcl.ui.FXUtils.SINE;
 import static org.jackhuang.hmcl.util.i18n.I18n.i18n;
 import static org.jackhuang.hmcl.util.logging.Logger.LOG;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
-import org.jackhuang.hmcl.setting.ConfigHolder;
 
 public final class MainPage extends StackPane implements DecoratorPage {
     private static final String ANNOUNCEMENT = "announcement";
@@ -122,6 +126,9 @@ public final class MainPage extends StackPane implements DecoratorPage {
     private final ObservableList<Version> versions = FXCollections.observableArrayList();
     private final ObservableList<Node> versionNodes;
     private Profile profile;
+
+    private static TrayIcon trayIcon;
+    private static boolean traySupported = SystemTray.isSupported();
     private static final Path MIGRATION_FLAG_FILE = Metadata.HMCL_GLOBAL_DIRECTORY.resolve(".migration_done");
 
     private TransitionPane announcementPane;
@@ -129,6 +136,7 @@ public final class MainPage extends StackPane implements DecoratorPage {
     private final JFXButton menuButton;
 
     {
+        initializeSystemTray();
         HBox titleNode = new HBox(8);
         titleNode.setPadding(new Insets(0, 0, 0, 2));
         titleNode.setAlignment(Pos.CENTER_LEFT);
@@ -219,18 +227,30 @@ public final class MainPage extends StackPane implements DecoratorPage {
                 graphic.setAlignment(Pos.CENTER);
                 graphic.setTranslateX(-7);
                 graphic.setMaxWidth(200);
+
                 Label launchLabel = new Label(i18n("version.launch"));
                 launchLabel.setStyle("-fx-font-size: 16px;");
+
                 Label currentLabel = new Label();
                 currentLabel.setStyle("-fx-font-size: 12px;");
-                currentLabel.textProperty().bind(Bindings.createStringBinding(() -> {
+
+                // 绑定当前游戏版本文本
+                currentLabel.textProperty().bind(Bindings.createStringBinding(this::getCurrentGame, currentGameProperty()));
+
+                // 初始设置和监听变化
+                Runnable updateGraphic = () -> {
+                    graphic.getChildren().clear();
                     if (getCurrentGame() == null) {
-                        return i18n("version.empty");
+                        graphic.getChildren().add(launchLabel);
+                        graphic.setSpacing(0);
                     } else {
-                        return getCurrentGame();
+                        graphic.getChildren().addAll(launchLabel, currentLabel);
+                        graphic.setSpacing(4);
                     }
-                }, currentGameProperty()));
-                graphic.getChildren().setAll(launchLabel, currentLabel);
+                };
+
+                updateGraphic.run();
+                currentGameProperty().addListener((observable, oldValue, newValue) -> updateGraphic.run());
 
                 launchButton.setGraphic(graphic);
             }
@@ -325,6 +345,134 @@ public final class MainPage extends StackPane implements DecoratorPage {
                 }
             } catch (Exception e) {
                 LOG.warning("Failed to check HMCL migration: " + e.getMessage());
+            }
+        });
+    }
+
+
+    /**
+     * 初始化系统任务栏图标
+     */
+    private void initializeSystemTray() {
+        if (!traySupported) {
+            LOG.info("System tray is not supported on this platform");
+            return;
+        }
+
+        try {
+            // 获取系统托盘
+            SystemTray tray = SystemTray.getSystemTray();
+
+            // 加载图标图像
+            java.awt.Image image = loadTrayIcon();
+            if (image == null) {
+                LOG.warning("Failed to load tray icon image");
+                return;
+            }
+
+            // 创建托盘图标
+            trayIcon = new TrayIcon(image, Metadata.TITLE);
+            trayIcon.setImageAutoSize(true);
+
+            // 创建弹出菜单
+            java.awt.PopupMenu popupMenu = createTrayPopupMenu();
+            trayIcon.setPopupMenu(popupMenu);
+
+            // 添加鼠标点击事件
+            trayIcon.addActionListener(e -> showMainWindow());
+
+            // 添加到系统托盘
+            tray.add(trayIcon);
+
+            LOG.info("System tray icon initialized successfully");
+
+        } catch (Exception e) {
+            LOG.warning("Failed to initialize system tray: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 加载任务栏图标
+     */
+    private java.awt.Image loadTrayIcon() {
+        try {
+            // 尝试从内置资源加载
+            URL imageUrl = getClass().getResource("/assets/img/cc-icon-title.png");
+            if (imageUrl != null) {
+                return javax.imageio.ImageIO.read(imageUrl);
+            }
+
+            // 如果内置资源不存在，尝试创建简单图标
+            return createFallbackIcon();
+        } catch (IOException e) {
+            LOG.warning("Failed to load tray icon from resources: " + e.getMessage());
+            return createFallbackIcon();
+        }
+    }
+
+    /**
+     * 创建备用图标
+     */
+    private java.awt.Image createFallbackIcon() {
+        java.awt.image.BufferedImage image = new java.awt.image.BufferedImage(16, 16, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        java.awt.Graphics2D g = image.createGraphics();
+
+        g.setColor(new java.awt.Color(66, 133, 244)); // 蓝色背景
+        g.fillRect(0, 0, 16, 16);
+
+        g.setColor(java.awt.Color.WHITE);
+        g.setFont(new java.awt.Font("Arial", java.awt.Font.BOLD, 10));
+        g.drawString("CC", 3, 11);
+
+        g.dispose();
+        return image;
+    }
+
+    /**
+     * 创建托盘弹出菜单
+     */
+    private java.awt.PopupMenu createTrayPopupMenu() {
+        java.awt.PopupMenu popup = new java.awt.PopupMenu();
+
+        MenuItem showItem = new MenuItem(i18n("tray.show"));
+        showItem.addActionListener(e -> showMainWindow());
+        popup.add(showItem);
+
+        popup.addSeparator();
+
+        MenuItem exitItem = new MenuItem(i18n("tray.exit"));
+        exitItem.addActionListener(e -> exitApplication());
+        popup.add(exitItem);
+
+        return popup;
+    }
+
+
+    private void exitApplication() {
+        Platform.runLater(() -> {
+            // 移除托盘图标
+            if (trayIcon != null) {
+                SystemTray.getSystemTray().remove(trayIcon);
+            }
+            // 退出应用程序
+            Launcher.stopApplication();
+        });
+    }
+    /**
+     * 显示主窗口
+     */
+    private void showMainWindow() {
+        Platform.runLater(() -> {
+            Stage primaryStage = (Stage) Controllers.getStage();
+            if (primaryStage != null) {
+                // 显示窗口
+                primaryStage.show();
+                primaryStage.toFront();
+
+                // 如果窗口是最小化的，恢复它
+                if (primaryStage.isIconified()) {
+                    primaryStage.setIconified(false);
+                }
             }
         });
     }
@@ -473,7 +621,15 @@ public final class MainPage extends StackPane implements DecoratorPage {
             updatePane.setVisible(show);
         }
     }
-
+    public static void cleanupTrayIcon() {
+        if (traySupported && trayIcon != null) {
+            try {
+                SystemTray.getSystemTray().remove(trayIcon);
+            } catch (Exception e) {
+                LOG.warning("Failed to remove tray icon: " + e.getMessage());
+            }
+        }
+    }
     private void launch() {
         Profile profile = Profiles.getSelectedProfile();
         Versions.launch(profile, profile.getSelectedVersion(), null);

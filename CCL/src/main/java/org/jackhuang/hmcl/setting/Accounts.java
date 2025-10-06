@@ -71,17 +71,17 @@ public final class Accounts {
 
     public static final OAuthServer.Factory OAUTH_CALLBACK = new OAuthServer.Factory();
 
-    public static final OfflineAccountFactory FACTORY_OFFLINE = new OfflineAccountFactory(AUTHLIB_INJECTOR_DOWNLOADER);
+    // public static final OfflineAccountFactory FACTORY_OFFLINE = new OfflineAccountFactory(AUTHLIB_INJECTOR_DOWNLOADER);
     public static final AuthlibInjectorAccountFactory FACTORY_AUTHLIB_INJECTOR = new AuthlibInjectorAccountFactory(AUTHLIB_INJECTOR_DOWNLOADER, Accounts::getOrCreateAuthlibInjectorServer);
     public static final MicrosoftAccountFactory FACTORY_MICROSOFT = new MicrosoftAccountFactory(new MicrosoftService(OAUTH_CALLBACK));
-    public static final List<AccountFactory<?>> FACTORIES = immutableListOf(FACTORY_OFFLINE, FACTORY_MICROSOFT, FACTORY_AUTHLIB_INJECTOR);
+    public static final List<AccountFactory<?>> FACTORIES = immutableListOf(/* FACTORY_OFFLINE, */FACTORY_MICROSOFT, FACTORY_AUTHLIB_INJECTOR);
 
     // ==== login type / account factory mapping ====
     private static final Map<String, AccountFactory<?>> type2factory = new HashMap<>();
     private static final Map<AccountFactory<?>, String> factory2type = new HashMap<>();
 
     static {
-        type2factory.put("offline", FACTORY_OFFLINE);
+        // type2factory.put("offline", FACTORY_OFFLINE);
         type2factory.put("authlibInjector", FACTORY_AUTHLIB_INJECTOR);
         type2factory.put("microsoft", FACTORY_MICROSOFT);
 
@@ -110,9 +110,9 @@ public final class Accounts {
     // ====
 
     public static AccountFactory<?> getAccountFactory(Account account) {
-        if (account instanceof OfflineAccount)
+         /* if (account instanceof OfflineAccount)
             return FACTORY_OFFLINE;
-        else if (account instanceof AuthlibInjectorAccount)
+        else */if (account instanceof AuthlibInjectorAccount)
             return FACTORY_AUTHLIB_INJECTOR;
         else if (account instanceof MicrosoftAccount)
             return FACTORY_MICROSOFT;
@@ -198,10 +198,16 @@ public final class Accounts {
             throw new IllegalStateException("Already initialized");
 
         if (!config().isAddedLittleSkin()) {
-            AuthlibInjectorServer littleSkin = new AuthlibInjectorServer("https://littleskin.cn/api/yggdrasil/");
+            AuthlibInjectorServer ClearCraft = new AuthlibInjectorServer("https://skins.clearcraft.cn/api/yggdrasil/");
 
-            if (config().getAuthlibInjectorServers().stream().noneMatch(it -> littleSkin.getUrl().equals(it.getUrl()))) {
-                config().getAuthlibInjectorServers().add(0, littleSkin);
+            if (config().getAuthlibInjectorServers().stream().noneMatch(it -> ClearCraft.getUrl().equals(it.getUrl()))) {
+                config().getAuthlibInjectorServers().add(0, ClearCraft);
+            }
+
+            AuthlibInjectorServer RainCraft = new AuthlibInjectorServer("https://skin.ineko.cc/api/yggdrasil/");
+
+            if (config().getAuthlibInjectorServers().stream().noneMatch(it -> RainCraft.getUrl().equals(it.getUrl()))) {
+                config().getAuthlibInjectorServers().add(1, RainCraft);
             }
 
             config().setAddedLittleSkin(true);
@@ -399,7 +405,6 @@ public final class Accounts {
 
     // ==== Login type name i18n ===
     private static final Map<AccountFactory<?>, String> unlocalizedLoginTypeNames = mapOf(
-            pair(Accounts.FACTORY_OFFLINE, "account.methods.offline"),
             pair(Accounts.FACTORY_AUTHLIB_INJECTOR, "account.methods.authlib_injector"),
             pair(Accounts.FACTORY_MICROSOFT, "account.methods.microsoft"));
 
