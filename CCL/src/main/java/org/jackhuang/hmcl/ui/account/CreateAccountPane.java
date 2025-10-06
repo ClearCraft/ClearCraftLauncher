@@ -519,7 +519,7 @@ public class CreateAccountPane extends JFXDialogLayout implements DialogAware {
             }
 
 
-            if (factory.getLoginType().requiresUsername) {
+            if (factory != null && factory.getLoginType().requiresUsername) {
                 Label lblUsername = new Label(i18n("account.username"));
                 setHalignment(lblUsername, HPos.LEFT);
                 add(lblUsername, 0, rowIndex);
@@ -541,7 +541,7 @@ public class CreateAccountPane extends JFXDialogLayout implements DialogAware {
                 rowIndex++;
             }
 
-            if (factory.getLoginType().requiresPassword) {
+            if (factory != null && factory.getLoginType().requiresPassword) {
                 Label lblPassword = new Label(i18n("account.password"));
                 setHalignment(lblPassword, HPos.LEFT);
                 add(lblPassword, 0, rowIndex);

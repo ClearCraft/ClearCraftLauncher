@@ -55,3 +55,4 @@ hmcl-exported-logs-*
 /hmcl.json
 /.hmcl.json
 /.hmcl/
+/.ccl/
